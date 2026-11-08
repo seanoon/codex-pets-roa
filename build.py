@@ -709,6 +709,50 @@ p_review_frames[0].save(
     transparency=255
 )
 
+# Row 2 Run Left GIF
+run_left_8 = [run_cells_left[c % 4] for c in range(8)]
+run_left_8[0].save(
+    "run_left_cycle.gif",
+    save_all=True,
+    append_images=run_left_8[1:],
+    duration=120,
+    loop=0,
+    disposal=2
+)
+
+# Row 4 Jump / Celebration GIF
+jump_cells = [idle_cells[c] if c in [0, 6, 7] else make_jump_cell(jump_offsets[c]) for c in range(COLS)]
+jump_cells[0].save(
+    "jump_cycle_perfect.gif",
+    save_all=True,
+    append_images=jump_cells[1:],
+    duration=120,
+    loop=0,
+    disposal=2
+)
+
+# Row 7 Fast Run GIF
+run_cycle_8[0].save(
+    "fast_run_cycle.gif",
+    save_all=True,
+    append_images=run_cycle_8[1:],
+    duration=80,
+    loop=0,
+    disposal=2
+)
+
+# Row 9 Look Up GIF
+lookup_cells = [make_upper_sway_cell(sway_shifts[c], y_bob=-2) for c in range(COLS)]
+lookup_cells[0].save(
+    "lookup_cycle.gif",
+    save_all=True,
+    append_images=lookup_cells[1:],
+    duration=130,
+    loop=0,
+    disposal=2
+)
+
+
 # Also generate a test preview on neon pink to prove NO white parts are lost!
 pink_test = Image.new("RGBA", (CELL_W, CELL_H), (255, 0, 128, 255))
 pink_test.paste(idle_cells[0], (0, 0), idle_cells[0])
