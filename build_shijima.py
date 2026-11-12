@@ -3,6 +3,7 @@ import os
 import zipfile
 from collections import deque
 from PIL import Image, ImageOps
+from master_design import patch_asset_image, ensure_master_head
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
@@ -12,7 +13,8 @@ SHIJIMA_IMG_DIR = os.path.join(SHIJIMA_BUILD_DIR, "img")
 
 os.makedirs(SHIJIMA_IMG_DIR, exist_ok=True)
 
-print("=== STARTING SHIJIMA MASCOT BUILD ===")
+print("=== STARTING SHIJIMA MASCOT BUILD (WITH MASTER HEAD PROPAGATION) ===")
+ensure_master_head()
 
 # 1. Load existing 192x208 master spritesheet (8 cols x 11 rows)
 CELL_W, CELL_H = 192, 208
@@ -45,8 +47,7 @@ def cell_to_shijima_ground(cell_img, mirror=False):
 
 # 2. Helper to clean white background and extract 3 frames from 1376x768 sheets
 def extract_3_frames_from_sheet(filename, extra_seeds=None):
-    path = os.path.join(ASSETS_DIR, filename)
-    img = Image.open(path).convert("RGBA")
+    img = patch_asset_image(filename)
     w, h = img.size
     pix = img.load()
 
@@ -1056,24 +1057,26 @@ actions_xml = f"""<?xml version="1.0" encoding="UTF-8" ?>
 with open(os.path.join(SHIJIMA_BUILD_DIR, "actions.xml"), "w", encoding="utf-8") as f:
     f.write(actions_xml)
 
-with open("/tmp/default_behaviors.xml", "r", encoding="utf-8-sig") as f:
-    behaviors_xml = f.read()
+behaviors_out_path = os.path.join(SHIJIMA_BUILD_DIR, "behaviors.xml")
+if os.path.exists("/tmp/default_behaviors.xml"):
+    with open("/tmp/default_behaviors.xml", "r", encoding="utf-8-sig") as f:
+        behaviors_xml = f.read()
 
-custom_floor_behaviors = """			<Behavior Name="StandUp" Frequency="150" Hidden="true" />
-			<Behavior Name="WaveGreeting" Frequency="120" />
-			<Behavior Name="CelebrateJump" Frequency="100" />
-			<Behavior Name="InquisitiveWait" Frequency="120" />
-			<Behavior Name="HackerReview" Frequency="120" />
-			<Behavior Name="SleepingNap" Frequency="100" />
-			<Behavior Name="CryingStamp" Frequency="60" />"""
+    custom_floor_behaviors = """\t\t\t<Behavior Name="StandUp" Frequency="150" Hidden="true" />
+\t\t\t<Behavior Name="WaveGreeting" Frequency="120" />
+\t\t\t<Behavior Name="CelebrateJump" Frequency="100" />
+\t\t\t<Behavior Name="InquisitiveWait" Frequency="120" />
+\t\t\t<Behavior Name="HackerReview" Frequency="120" />
+\t\t\t<Behavior Name="SleepingNap" Frequency="100" />
+\t\t\t<Behavior Name="CryingStamp" Frequency="60" />"""
 
-behaviors_xml = behaviors_xml.replace(
-    '\t\t\t<Behavior Name="StandUp" Frequency="200" Hidden="true" />',
-    custom_floor_behaviors
-)
+    behaviors_xml = behaviors_xml.replace(
+        '\t\t\t<Behavior Name="StandUp" Frequency="200" Hidden="true" />',
+        custom_floor_behaviors
+    )
 
-with open(os.path.join(SHIJIMA_BUILD_DIR, "behaviors.xml"), "w", encoding="utf-8") as f:
-    f.write(behaviors_xml)
+    with open(behaviors_out_path, "w", encoding="utf-8") as f:
+        f.write(behaviors_xml)
 
 # ==========================================
 # 6. PACKAGE roa_shijima.zip

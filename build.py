@@ -5,18 +5,18 @@ import zipfile
 import math
 from collections import deque
 from PIL import Image, ImageOps, ImageDraw
+from master_design import patch_asset_image, ensure_master_head
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR = os.path.join(BASE_DIR, 'assets')
-from collections import deque
 
-print("=== STARTING V6 BUILD ===")
+print("=== STARTING V6 BUILD (WITH MASTER HEAD PROPAGATION) ===")
+ensure_master_head()
 
 # ==========================================
 # 1. PROCESS BASE IDLE & ACTION (roa_chibi_v3)
 # ==========================================
-v3_path = os.path.join(ASSETS_DIR, "chibi_base.jpg")
-img_v3 = Image.open(v3_path).convert("RGBA")
+img_v3 = patch_asset_image("chibi_base.jpg")
 w3, h3 = img_v3.size
 pix3 = img_v3.load()
 
@@ -233,7 +233,7 @@ ground_y_in_cell = CELL_H - 12 # 196
 # 3B. Prepare RUN Cycle (Frames 1, 2, 3, 4 - v7 Zero-Fringe Master Edition)
 # 4 distinct frames: [Frame 1, Frame 2, Frame 3, Frame 4]
 # Perfect run cycle with counter-arm swings, bouncing tail, and zero magenta fringe!
-run_master_strip = Image.open(os.path.join(ASSETS_DIR, "run_strip.png"))
+run_master_strip = patch_asset_image("run_strip.png")
 run_cells_right = [
     run_master_strip.crop((i * CELL_W, 0, (i + 1) * CELL_W, CELL_H))
     for i in range(4)
@@ -294,8 +294,7 @@ for ang in wave_angles:
     wave_cells.append(c)
 
 # --- EXTRACT ROW 5 (OFFICIAL CRYING STAMP: EEN!) ---
-crying_sheet_path = os.path.join(ASSETS_DIR, "crying_sheet.jpg")
-cry_sheet = Image.open(crying_sheet_path).convert("RGBA")
+cry_sheet = patch_asset_image("crying_sheet.jpg")
 csw, csh = cry_sheet.size
 ccol_w = csw // 4
 
@@ -358,7 +357,7 @@ for f in cry_raw_frames:
 failed_cells = [cry_scaled_frames[i] for i in [0, 1, 2, 3, 2, 1, 0, 1]]
 
 # 3F. Prepare SLEEP / REST Cycle (Row 10: Special / Rest - Sitting Nodding Nap)
-p3_raw = Image.open(os.path.join(ASSETS_DIR, "sleeping_nap.png"))
+p3_raw = patch_asset_image("sleeping_nap.png")
 # scale = 0.228 to match idle head width (83px) perfectly
 p3_scale = 0.228
 p3_scaled = p3_raw.resize((int(round(p3_raw.width * p3_scale)), int(round(p3_raw.height * p3_scale))), Image.Resampling.LANCZOS)
@@ -429,7 +428,7 @@ for i in range(COLS):
     sleep_cells.append(canvas)
 
 # 3G. Prepare WAITING Cycle (Row 6: Waiting / Thinking - Head Tilt Jitome)
-r6_raw = Image.open(os.path.join(ASSETS_DIR, "waiting_jitome.png"))
+r6_raw = patch_asset_image("waiting_jitome.png")
 r6_head = r6_raw.crop((0, 0, r6_raw.width, 670))
 r6_body = r6_raw.crop((0, 630, r6_raw.width, r6_raw.height))
 
@@ -458,7 +457,7 @@ for a, b in zip(r6_angles, r6_bobs):
     waiting_cells.append(cell_canvas)
 
 # 3H. Prepare REVIEW / HACKER Cycle (Row 8: Review - Furious Laptop Typing with Dynamic Hand Movement)
-r8_raw = Image.open(os.path.join(ASSETS_DIR, "hacker_typing.png"))
+r8_raw = patch_asset_image("hacker_typing.png")
 r8_scale = 83.0 / 342.0
 r8_w = int(round(r8_raw.width * r8_scale))
 r8_h = int(round(r8_raw.height * r8_scale))
