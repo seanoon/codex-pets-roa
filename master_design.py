@@ -753,6 +753,11 @@ ASSET_HEAD_SPECS = {
 }
 
 
+# Long-sleeve assets already include the canonical master head styling (sky-blue hair, front crescent moon,
+# bang white mesh, and double-length osage), so skip re-applying short-sleeve hardcoded head coordinates.
+LONG_SLEEVE_ASSETS = True
+
+
 def patch_asset_image(filename, img=None):
     """
     Load and return a patched RGBA `PIL.Image` for `assets/<filename>` with
@@ -764,6 +769,9 @@ def patch_asset_image(filename, img=None):
         img = Image.open(path).convert("RGBA")
     else:
         img = img.convert("RGBA").copy()
+
+    if LONG_SLEEVE_ASSETS:
+        return img
 
     if filename == "run_strip.png":
         orig_img = img.copy()

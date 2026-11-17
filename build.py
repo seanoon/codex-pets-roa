@@ -171,10 +171,8 @@ def apply_dress_clouds(base_img, offset_x=0, offset_y=0):
                             pix[tx, ty] = (nr, ng, nb, da)
     return img
 
-idle_raw = apply_dress_clouds(idle_raw, offset_x=0, offset_y=0)
-jump_raw = apply_dress_clouds(jump_raw, offset_x=18, offset_y=0)
-wave_raw = apply_dress_clouds(wave_raw, offset_x=0, offset_y=0)
-print(f"Applied official cloud pattern to Idle ({idle_raw.size}), Jump ({jump_raw.size}), and Wave ({wave_raw.size})")
+# Long-sleeve assets already include custom skirt clouds and the crossbody hip bag.
+print(f"Loaded Idle ({idle_raw.size}), Jump ({jump_raw.size}), and Wave ({wave_raw.size}) with pre-baked skirt clouds & bag")
 # ==========================================
 # 3. BUILD SPRITESHEET ATLAS
 # ==========================================
@@ -253,26 +251,39 @@ def make_jump_cell(offset_y=0):
     c.paste(jump_scaled, (jx, jy), jump_scaled)
     return c
 
-# 3D. Prepare Wave / Greeting (Row 3: Waving Hand Cycle)
+# 3D. Prepare Wave / Greeting (Row 3: Waving Hand Cycle - Long Sleeve)
 arm_isolated = Image.new("RGBA", wave_raw.size, (0, 0, 0, 0))
 apix = arm_isolated.load()
 wpix = wave_raw.load()
-for y in range(290, 430):
-    for x in range(230, 313):
+def is_wave_arm_pixel(x, y):
+    if not (214 <= x < wave_raw.width and 272 <= y < 462):
+        return False
+    # Exclude skirt/torso bottom-left below underarm and upper-left hair overlap
+    if y >= 418 and x < 246:
+        return False
+    if y < 316 and x < 238:
+        return False
+    return True
+
+for y in range(272, 462):
+    for x in range(214, wave_raw.width):
+        if not is_wave_arm_pixel(x, y):
+            continue
         r, g, b, a = wpix[x, y]
-        is_hair = (b > r + 30 and b > 140)
+        is_hair = (y < 325 and b > r + 25 and b > 135 and x < 268)
         if a > 0 and not is_hair:
             apix[x, y] = (r, g, b, a)
-arm_bbox = arm_isolated.getbbox() # (230, 290, 311, 409)
+arm_bbox = arm_isolated.getbbox()
 wave_arm_crop = arm_isolated.crop(arm_bbox)
 
-# Base body with hair restored from idle
+# Base body with hair restored from idle (keep a small inner shoulder overlap at x < 224 to avoid rotation gaps)
 wave_body = wave_raw.copy()
-p0_hair = idle_raw.crop((210, 250, 300, 380))
+p0_hair = idle_raw.crop((210, 250, 305, 380))
 wbpix = wave_body.load()
-for y in range(290, 420):
-    for x in range(235, 313):
-        wbpix[x, y] = (0, 0, 0, 0)
+for y in range(272, 462):
+    for x in range(224, wave_body.width):
+        if is_wave_arm_pixel(x, y):
+            wbpix[x, y] = (0, 0, 0, 0)
 wave_body.paste(p0_hair, (210, 250), p0_hair)
 
 wave_scale = target_char_h / wave_raw.height
@@ -280,9 +291,9 @@ ww = int(wave_raw.width * wave_scale)
 wh = target_char_h
 wx = (CELL_W - ww) // 2
 wy = CELL_H - wh - 12
-pivot = (12, 120) # pivot inside wave_arm_crop
+pivot = (10, 96) # inner shoulder pivot inside wave_arm_crop
 
-wave_angles = [-8, -4, 2, 8, 12, 8, 2, -4]
+wave_angles = [-5, -2, 2, 5, 7, 5, 2, -2]
 wave_cells = []
 for ang in wave_angles:
     rot_arm = wave_arm_crop.rotate(-ang, resample=Image.Resampling.BICUBIC, center=pivot)
@@ -358,8 +369,8 @@ failed_cells = [cry_scaled_frames[i] for i in [0, 1, 2, 3, 2, 1, 0, 1]]
 
 # 3F. Prepare SLEEP / REST Cycle (Row 10: Special / Rest - Sitting Nodding Nap)
 p3_raw = patch_asset_image("sleeping_nap.png")
-# scale = 0.228 to match idle head width (83px) perfectly
-p3_scale = 0.228
+# scale to match idle head width (83px)
+p3_scale = 83.0 / 335.0
 p3_scaled = p3_raw.resize((int(round(p3_raw.width * p3_scale)), int(round(p3_raw.height * p3_scale))), Image.Resampling.LANCZOS)
 
 # Pixel art effect patterns for Zzz
@@ -429,13 +440,13 @@ for i in range(COLS):
 
 # 3G. Prepare WAITING Cycle (Row 6: Waiting / Thinking - Head Tilt Jitome)
 r6_raw = patch_asset_image("waiting_jitome.png")
-r6_head = r6_raw.crop((0, 0, r6_raw.width, 670))
-r6_body = r6_raw.crop((0, 630, r6_raw.width, r6_raw.height))
+r6_head = r6_raw.crop((0, 0, r6_raw.width, 642))
+r6_body = r6_raw.crop((0, 620, r6_raw.width, r6_raw.height))
 
-r6_scale = 83.0 / 655.0
+r6_scale = 83.0 / 625.0
 r6_w = int(round(r6_raw.width * r6_scale))
 r6_h = int(round(r6_raw.height * r6_scale))
-r6_pivot = (335, 670)
+r6_pivot = (333, 642)
 
 # Gentle inquisitive nodding / tilting: starts upright (+1.5 deg), tilts to -3.0 deg, returns
 r6_angles = [1.5, 0.5, -0.8, -2.2, -3.0, -2.2, -0.8, 0.5]
@@ -448,7 +459,7 @@ r6_pos_y = ground_y_in_cell - r6_h
 for a, b in zip(r6_angles, r6_bobs):
     rot_h = r6_head.rotate(a, resample=Image.Resampling.BICUBIC, center=r6_pivot)
     c_large = Image.new('RGBA', r6_raw.size, (0, 0, 0, 0))
-    c_large.paste(r6_body, (0, 630), r6_body)
+    c_large.paste(r6_body, (0, 620), r6_body)
     c_large.paste(rot_h, (0, b), rot_h)
     scaled_f = c_large.resize((r6_w, r6_h), Image.Resampling.LANCZOS)
     
@@ -458,22 +469,22 @@ for a, b in zip(r6_angles, r6_bobs):
 
 # 3H. Prepare REVIEW / HACKER Cycle (Row 8: Review - Furious Laptop Typing with Dynamic Hand Movement)
 r8_raw = patch_asset_image("hacker_typing.png")
-r8_scale = 83.0 / 342.0
+r8_scale = 83.0 / 338.0
 r8_w = int(round(r8_raw.width * r8_scale))
 r8_h = int(round(r8_raw.height * r8_scale))
 
-# Extract hand layers for dynamic typing animation
-r_box = (195, 405, 285, 495)
+# Extract hand layers for dynamic typing animation (gentle 3px tap near fingers)
+r_box = (244, 405, 278, 444)
 r_hand = r8_raw.crop(r_box)
 
-l_box = (145, 435, 215, 505)
+l_box = (200, 444, 238, 482)
 l_hand = r8_raw.crop(l_box)
 
 # Dynamic hand key-tapping offsets (large coords)
-r_dys = [6, -5, 7, -4, 6, -5, 7, -4]
-l_dys = [-5, 6, -4, 7, -5, 6, -4, 7]
-r_spark_pos = (245, 492)
-l_spark_pos = (190, 502)
+r_dys = [3, -2, 3, -2, 3, -2, 3, -2]
+l_dys = [-2, 3, -2, 3, -2, 3, -2, 3]
+r_spark_pos = (252, 444)
+l_spark_pos = (224, 478)
 
 review_cells = []
 r8_pos_x = (CELL_W - r8_w) // 2
@@ -507,18 +518,18 @@ for i in range(COLS):
     yb = 0 if i % 2 == 0 else -1
     canvas.paste(scaled_hacker, (r8_pos_x, r8_pos_y + yb), scaled_hacker)
     
-    # Rising digital sparkle particles
+    # Rising digital sparkle particles cleanly over laptop on the right
     t1 = i / COLS
-    p1_x = r8_pos_x + 72 + int(math.sin(t1 * math.pi * 2) * 3)
-    p1_y = r8_pos_y + 80 - int(t1 * 30)
+    p1_x = r8_pos_x + 86 + int(math.sin(t1 * math.pi * 2) * 3)
+    p1_y = r8_pos_y + 84 - int(t1 * 24)
     
     t2 = (i + 3) % COLS / COLS
-    p2_x = r8_pos_x + 80 + int(math.cos(t2 * math.pi * 2) * 4)
-    p2_y = r8_pos_y + 75 - int(t2 * 28)
+    p2_x = r8_pos_x + 95 + int(math.cos(t2 * math.pi * 2) * 3)
+    p2_y = r8_pos_y + 80 - int(t2 * 22)
     
     t3 = (i + 6) % COLS / COLS
-    p3_x = r8_pos_x + 66 + int(math.sin(t3 * math.pi * 2 + 1) * 3)
-    p3_y = r8_pos_y + 70 - int(t3 * 32)
+    p3_x = r8_pos_x + 82 + int(math.sin(t3 * math.pi * 2 + 1) * 3)
+    p3_y = r8_pos_y + 76 - int(t3 * 24)
     
     draw_c = ImageDraw.Draw(canvas)
     draw_c.rectangle([p1_x, p1_y, p1_x+2, p1_y+2], fill=(140, 220, 255, 230))

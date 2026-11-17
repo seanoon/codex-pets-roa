@@ -30,10 +30,12 @@ Custom desktop pet & shimeji "Roa" for [Codex Pets](https://github.com/PierroX4/
 ## Installation
 
 ### Codex Pets / AgentPet
-Download `roa.codex-pet` from the [Releases](https://github.com/seanoon/codex-pets-roa/releases) page and import it into Codex Pets or AgentPet.
+Download `roa.codex-pet` (Long Sleeve / v2.0+) from the [Releases](https://github.com/seanoon/codex-pets-roa/releases) page and import it into Codex Pets or AgentPet.
+For the classic short-sleeve design, use `roa_short_sleeve.codex-pet`.
 
 ### Shijima (Android / Shijima-Qt)
-Import `roa_shijima.zip` directly into the **Shijima** app on Android (or Shijima-Qt on desktop).
+Import `roa_shijima.zip` (Long Sleeve / v2.0+) directly into the **Shijima** app on Android (or Shijima-Qt on desktop).
+For the classic short-sleeve design, use `roa_shijima_short_sleeve.zip`.
 
 ## Build from Source
 
