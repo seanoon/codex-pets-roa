@@ -12,6 +12,7 @@ Single Source of Truth:
 """
 import os
 import math
+import colorsys
 from collections import deque
 from PIL import Image
 
@@ -141,7 +142,7 @@ def apply_moon_in_front(img, orig_img, mc_x, mc_y, scale=1.0):
                 gy_clean = (py - y0) / scale
                 r, g, b, a = opix[px, py]
                 if a > 128 and b < 210:
-                    pix[px, py] = H_BASE if gy_clean < 43 else (150, 175, 242, 255)
+                    pix[px, py] = H_BASE if gy_clean < 43 else H_LIGHT
             continue
 
         gy_true_bot = CY + math.sqrt(max(0.0, R_OUT**2 - dx**2))
@@ -164,7 +165,7 @@ def apply_moon_in_front(img, orig_img, mc_x, mc_y, scale=1.0):
                 elif gy_clean <= 43:
                     pix[px, py] = H_BASE
                 elif gy_clean <= 49:
-                    pix[px, py] = (162, 185, 246, 255)
+                    pix[px, py] = H_LIGHT
                 else:
                     pix[px, py] = H_BASE
 
@@ -470,7 +471,7 @@ def apply_run_strip_moon_in_front(img):
     Y  = (254, 225, 118, 255)  # crisp bright moon yellow
     y  = (242, 204, 108, 255)  # soft gold edge
     B  = (128, 86, 48, 255)    # crisp moon brown outline
-    HB = (131, 147, 231, 255)  # hair blue to clean old lower-left bump
+    HB = H_BASE                # hair blue to clean old lower-left bump
     CW = (252, 252, 253, 255)  # cloud white
     CS = (185, 185, 202, 255)  # cloud top shadow
 
@@ -516,74 +517,235 @@ def apply_run_strip_moon_in_front(img):
     })
 
 
+# Exact Pattern 2 front-bang teardrop mesh (in base master_head.png space relative to top-center (156, 182))
+_MESH_W = (253, 255, 255)
+_MESH_L = (224, 240, 255)
+_MESH_M = (192, 222, 252)
+_MESH_S = (164, 200, 242)
+
+# Each row dy=0..69 -> list of (dx_from_center, color) matching Pattern 2
+_PATTERN2_DX_TABLE = {}
+for _y in range(182, 252):
+    _dy = _y - 182
+    if _y < 186:
+        _PATTERN2_DX_TABLE[_dy] = [(-1, _MESH_S if _y < 184 else _MESH_M)]
+    elif _y < 192:
+        _PATTERN2_DX_TABLE[_dy] = [(-1, _MESH_L), (0, _MESH_M)]
+    elif _y < 202:
+        _PATTERN2_DX_TABLE[_dy] = [(-2, _MESH_M), (-1, _MESH_W), (0, _MESH_L)]
+    elif _y < 218:
+        _PATTERN2_DX_TABLE[_dy] = [(-2, _MESH_L), (-1, _MESH_W), (0, _MESH_W), (1, _MESH_M)]
+    elif _y < 234:
+        _PATTERN2_DX_TABLE[_dy] = [(-2, _MESH_M), (-1, _MESH_W), (0, _MESH_W), (1, _MESH_W), (2, _MESH_M)]
+    elif _y < 246:
+        _PATTERN2_DX_TABLE[_dy] = [(-1, _MESH_L), (0, _MESH_W), (1, _MESH_W), (2, _MESH_W), (3, _MESH_L)]
+    elif _y < 249:
+        _PATTERN2_DX_TABLE[_dy] = [(0, _MESH_M), (1, _MESH_L), (2, _MESH_L), (3, _MESH_M)]
+    else:
+        _PATTERN2_DX_TABLE[_dy] = [(1, _MESH_S), (2, _MESH_M), (3, _MESH_S)]
+
+
+def apply_bang_mesh_pattern2(img, orig_img, bx, by, scale=1.0):
+    """
+    Paint the crisp pixel-art Pattern 2 teardrop white mesh on the left side of the front bangs,
+    anchored at top-center (bx, by) with `scale`. Safely skips dark creases and warm skin.
+    """
+    pix = img.load()
+    opix = orig_img.load()
+    w, h = img.size
+
+    if abs(scale - 1.0) < 0.01:
+        for dy, items in _PATTERN2_DX_TABLE.items():
+            py = int(round(by + dy))
+            if not (0 <= py < h):
+                continue
+            for dx, col in items:
+                px = int(round(bx + dx))
+                if not (0 <= px < w):
+                    continue
+                r, g, b, a = opix[px, py]
+                if a < 128 or (r > 205 and g > 165 and r - b > 15) or (r < 105 and b < 185):
+                    continue
+                pix[px, py] = (*col, a)
+        return
+
+    # General scaled sampling for sub-1x (e.g. 0.90x, 0.45x) or 2x assets
+    dx_lookup = {}
+    for dy, items in _PATTERN2_DX_TABLE.items():
+        dx_lookup[dy] = {dx: col for dx, col in items}
+
+    py_start = max(0, int(math.floor(by - 1)))
+    py_end = min(h - 1, int(math.ceil(by + 70 * scale)))
+    px_start = max(0, int(math.floor(bx - 3 * scale)))
+    px_end = min(w - 1, int(math.ceil(bx + 4 * scale)))
+    for py in range(py_start, py_end + 1):
+        dy = int(round((py - by) / scale))
+        row_map = dx_lookup.get(dy)
+        if not row_map:
+            continue
+        for px in range(px_start, px_end + 1):
+            dx = int(round((px - bx) / scale))
+            col = row_map.get(dx)
+            if col is None:
+                continue
+            r, g, b, a = opix[px, py]
+            if a < 128 or (r > 205 and g > 165 and r - b > 15) or (r < 105 and b < 185):
+                continue
+            pix[px, py] = (*col, a)
+
+
+def apply_run_strip_bang_mesh(img, orig_img):
+    """Add crisp Pattern 2 front-bang left white mesh across all 4 frames of `run_strip.png`."""
+    # Frame-exact (bx, by) centers for scale=0.45 matching the center-left bang lock in each frame
+    anchors = [
+        (97.0, 58.0),
+        (289.0, 58.0),
+        (481.5, 61.0),
+        (674.0, 62.0),
+    ]
+    pix = img.load()
+    opix = orig_img.load()
+    for bx, by in anchors:
+        for step in range(16):
+            py = int(round(by + step))
+            px_c = int(round(bx + (0.0 if step < 8 else (0.5 if step < 13 else 1.0))))
+            if step <= 1:
+                cols = [(px_c, _MESH_M)]
+            elif step <= 6:
+                cols = [(px_c, _MESH_W)]
+            elif step <= 12:
+                cols = [(px_c, _MESH_W), (px_c + 1, _MESH_L)]
+            elif step <= 14:
+                cols = [(px_c, _MESH_L), (px_c + 1, _MESH_M)]
+            else:
+                cols = [(px_c, _MESH_S)]
+            for px, col in cols:
+                r, g, b, a = opix[px, py]
+                if a < 128 or (r > 205 and g > 165 and r - b > 15) or (r < 105 and b < 185):
+                    continue
+                pix[px, py] = (*col, a)
+
+
+def shift_hair_to_orig_blue(img, eye_boxes=None, protect_boxes=None):
+    """
+    Shift Roa's hair, cat ears, and cat tail from purple-periwinkle (Hue ~226..238 deg)
+    to the original reference sky-cornflower blue (Hue ~212..216 deg),
+    preserving purple eyes, warm skin, yellow moon, sailor dress, and deep blue bows.
+    """
+    pix = img.load()
+    w, h = img.size
+    eye_boxes = eye_boxes or []
+    protect_boxes = protect_boxes or []
+
+    def in_boxes(x, y, boxes):
+        for x1, y1, x2, y2 in boxes:
+            if x1 <= x <= x2 and y1 <= y <= y2:
+                return True
+        return False
+
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = pix[x, y]
+            if a < 16:
+                continue
+            if in_boxes(x, y, protect_boxes):
+                continue
+            if not (b > g and (g - r) >= -14):
+                continue
+            if in_boxes(x, y, eye_boxes) and (g - r) < 16:
+                continue
+
+            hh, ss, vv = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
+            h_deg = hh * 360.0
+
+            # Exclude deep royal blue bows/ribbons (ss > 0.72) & cyan/sailor dress (h_deg < 219.0)
+            if 219.0 <= h_deg <= 244.0 and 0.15 <= ss <= 0.72:
+                t_hue = min(1.0, (h_deg - 215.0) / 25.0)
+                new_h_deg = 212.0 + 4.0 * t_hue
+
+                if vv > 0.45:
+                    if ss > 0.50:
+                        ss = 0.46 + (ss - 0.50) * 0.35
+                    else:
+                        ss = ss * 0.95
+                    if vv < 0.85 and ss > 0.42:
+                        vv = min(0.92, vv + (0.85 - vv) * 0.25)
+
+                nr, ng, nb = colorsys.hsv_to_rgb(new_h_deg / 360.0, ss, vv)
+                pix[x, y] = (int(round(nr * 255)), int(round(ng * 255)), int(round(nb * 255)), a)
+
+
 # Deterministic, pixel-verified per-asset head anchor table:
 #   mc: (mc_x, mc_y, mc_scale) aligned to exact moon right/top contour
 #   lb: (lb_x, lb_y, lb_scale) aligned to exact left hair edge & left ribbon bottom
 #   rb: (rb_x, rb_y, rb_scale) aligned to exact right hair edge & right ribbon bottom
 #   inner_l: True when the base art has a 2nd inner white pearl string on top of the left hair
+#   bm_dx, bm_dy: offset in base coords for Pattern 2 front-bang left white mesh
 ASSET_HEAD_SPECS = {
     "chibi_base.jpg": {
         "bg": (255, 255, 255, 255),
         "heads": [
             {"mc": (230, 150, 1.0),  "lb": (40, 164, 1.0),   "rb": (286, 164, 1.0)},
-            {"mc": None,             "lb": (432, 164, 1.0),  "rb": "profile"},
-            {"mc": (906, 139, 1.0),  "lb": (721, 158, 0.98), "rb": (960, 156, 0.98)},
+            {"mc": None,             "lb": (432, 164, 1.0),  "rb": "profile", "no_bang_mesh": True},
+            {"mc": (906, 139, 1.0),  "lb": (721, 158, 0.98), "rb": (960, 156, 0.98), "bm_dx": 2.0},
             {"mc": (1244, 150, 1.0), "lb": (1054, 164, 1.0), "rb": (1300, 164, 1.0)},
         ],
     },
     "crying_sheet.jpg": {
         "bg": (255, 255, 255, 255),
         "heads": [
-            {"mc": (234, 130, 1.05),  "lb": (27, 150, 1.05),   "rb": (292, 150, 1.05),  "lw_scale": 0.72, "rw_scale": 0.56},
-            {"mc": (577, 130, 1.05),  "lb": (371, 150, 1.05),  "rb": (636, 150, 1.05),  "lw_scale": 0.72, "rw_scale": 0.56},
-            {"mc": (912, 130, 1.05),  "lb": (709, 150, 1.05),  "rb": (972, 150, 1.05),  "lw_scale": 0.72, "rw_scale": 0.56},
-            {"mc": (1247, 130, 1.05), "lb": (1043, 150, 1.05), "rb": (1307, 150, 1.05), "lw_scale": 0.65, "rw_scale": 0.56},
+            {"mc": (234, 130, 1.05),  "lb": (27, 150, 1.05),   "rb": (292, 150, 1.05),  "lw_scale": 0.72, "rw_scale": 0.56, "bm_dx": 1.0},
+            {"mc": (577, 130, 1.05),  "lb": (371, 150, 1.05),  "rb": (636, 150, 1.05),  "lw_scale": 0.72, "rw_scale": 0.56, "bm_dx": 1.0},
+            {"mc": (912, 130, 1.05),  "lb": (709, 150, 1.05),  "rb": (972, 150, 1.05),  "lw_scale": 0.72, "rw_scale": 0.56, "bm_dx": 1.0},
+            {"mc": (1247, 130, 1.05), "lb": (1043, 150, 1.05), "rb": (1307, 150, 1.05), "lw_scale": 0.65, "rw_scale": 0.56, "bm_dx": 1.0},
         ],
     },
     "waiting_jitome.png": {
         "bg": (0, 0, 0, 0),
         "heads": [
-            {"mc": (429, 191, 2.06), "lb": (25, 244, 2.05), "rb": (543, 222, 2.05)},
+            {"mc": (429, 191, 2.06), "lb": (25, 244, 2.05), "rb": (543, 222, 2.05), "bm_dx": 2.0},
         ],
     },
     "sleeping_nap.png": {
         "bg": (0, 0, 0, 0),
         "heads": [
-            {"mc": (247, 115, 1.08), "lb": (19, 136, 1.02), "rb": (305, 142, 1.00), "inner_l": True, "rw_scale": 0.72},
+            {"mc": (247, 115, 1.08), "lb": (19, 136, 1.02), "rb": (305, 142, 1.00), "inner_l": True, "rw_scale": 0.72, "bm_dx": 19.0, "bm_dy": 0.0},
         ],
     },
     "hacker_typing.png": {
         "bg": (0, 0, 0, 0),
+        "protect_boxes": [(175, 415, 398, 560)],
         "heads": [
-            {"mc": (284, 112, 1.05), "lb": (38, 132, 1.02), "rb": (325, 146, 1.00), "inner_l": True, "rw_scale": 0.72},
+            {"mc": (284, 112, 1.05), "lb": (38, 132, 1.02), "rb": (325, 146, 1.00), "inner_l": True, "rw_scale": 0.72, "bm_dx": 20.0, "bm_dy": 2.0},
         ],
     },
     "wall_climb_hybrid.jpg": {
         "bg": (255, 255, 255, 255),
         "heads": [
-            {"mc": (241, 128, 0.88),  "lb": (69, 175, 0.90),   "rb": (286, 146, 0.88), "inner_l": True, "rw_scale": 0.58},
-            {"mc": (721, 139, 0.87),  "lb": (540, 172, 0.90),  "rb": (758, 152, 0.88), "inner_l": True, "rw_scale": 0.58},
-            {"mc": (1195, 136, 0.88), "lb": (1019, 178, 0.90), "rb": (1237, 152, 0.88), "inner_l": True, "rw_scale": 0.58},
+            {"mc": (241, 128, 0.88),  "lb": (69, 175, 0.90),   "rb": (286, 146, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 9.0},
+            {"mc": (721, 139, 0.87),  "lb": (540, 172, 0.90),  "rb": (758, 152, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 20.0, "bm_dy": 4.0},
+            {"mc": (1195, 136, 0.88), "lb": (1019, 178, 0.90), "rb": (1237, 152, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 16.0, "bm_dy": 4.0},
         ],
     },
     "ceiling_crawl.jpg": {
         "bg": (255, 255, 255, 255),
+        "skip_recolor": True,
         "heads": [],
     },
     "pinched_dragged.jpg": {
         "bg": (255, 255, 255, 255),
         "heads": [
-            {"mc": (241, 128, 0.88),  "lb": (69, 175, 0.90),   "rb": (286, 146, 0.88), "inner_l": True, "rw_scale": 0.58},
-            {"mc": (721, 139, 0.87),  "lb": (540, 172, 0.90),  "rb": (758, 152, 0.88), "inner_l": True, "rw_scale": 0.58},
-            {"mc": (1195, 136, 0.88), "lb": (1019, 178, 0.90), "rb": (1237, 152, 0.88), "inner_l": True, "rw_scale": 0.58},
+            {"mc": (241, 128, 0.88),  "lb": (69, 175, 0.90),   "rb": (286, 146, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 9.0},
+            {"mc": (721, 139, 0.87),  "lb": (540, 172, 0.90),  "rb": (758, 152, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 20.0, "bm_dy": 4.0},
+            {"mc": (1195, 136, 0.88), "lb": (1019, 178, 0.90), "rb": (1237, 152, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 16.0, "bm_dy": 4.0},
         ],
     },
     "fall_and_land.jpg": {
         "bg": (255, 255, 255, 255),
         "heads": [
-            {"mc": (247, 126, 0.92),  "lb": (69, 185, 0.90),   "rb": (310, 140, 0.88), "inner_l": True, "rw_scale": 0.58},
-            {"mc": (753, 204, 0.90),  "lb": (558, 224, 0.90),  "rb": (810, 225, 0.90), "inner_l": True, "rw_scale": 0.72},
-            {"mc": (1224, 165, 0.92), "lb": (1028, 179, 0.90), "rb": (1280, 185, 0.90), "inner_l": True, "rw_scale": 0.72},
+            {"mc": (247, 126, 0.92),  "lb": (69, 185, 0.90),   "rb": (310, 140, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 3.0},
+            {"mc": (753, 204, 0.90),  "lb": (558, 224, 0.90),  "rb": (810, 225, 0.90), "inner_l": True, "rw_scale": 0.72, "bm_dx": 17.0, "bm_dy": 12.0},
+            {"mc": (1224, 165, 0.92), "lb": (1028, 179, 0.90), "rb": (1280, 185, 0.90), "inner_l": True, "rw_scale": 0.72, "bm_dx": 13.0, "bm_dy": 4.0},
         ],
     },
 }
@@ -602,16 +764,36 @@ def patch_asset_image(filename, img=None):
         img = img.convert("RGBA").copy()
 
     if filename == "run_strip.png":
+        orig_img = img.copy()
+        eye_boxes = [(ox + 92, 65, ox + 135, 95) for ox in (0, 192, 384, 576)]
+        shift_hair_to_orig_blue(img, eye_boxes=eye_boxes)
         apply_run_strip_moon_in_front(img)
+        apply_run_strip_bang_mesh(img, orig_img)
         return img
 
     if filename not in ASSET_HEAD_SPECS:
         return img
 
-    orig_img = img.copy()
     spec = ASSET_HEAD_SPECS[filename]
+    orig_img = img.copy()
     bg_color = spec["bg"]
     skin_mask = is_warm_skin_mask(orig_img)
+
+    if not spec.get("skip_recolor", False):
+        eye_boxes = []
+        for hspec in spec["heads"]:
+            if hspec["lb"] is not None:
+                lb_x, lb_y, lb_s = hspec["lb"]
+                ox = lb_x - 40.0 * lb_s
+                oy = lb_y - 164.0 * lb_s
+                eye_boxes.append((
+                    int(round(ox + 95 * lb_s)),
+                    int(round(oy + 255 * lb_s)),
+                    int(round(ox + 265 * lb_s)),
+                    int(round(oy + 325 * lb_s)),
+                ))
+        shift_hair_to_orig_blue(img, eye_boxes=eye_boxes, protect_boxes=spec.get("protect_boxes"))
+        orig_img = img.copy()
 
     for hspec in spec["heads"]:
         if hspec["mc"] is not None:
@@ -632,6 +814,12 @@ def patch_asset_image(filename, img=None):
             rw_s = hspec.get("rw_scale", 1.0)
             apply_right_osage_frontal(img, orig_img, rb_x, rb_y, rb_s, bg_color, skin_mask, width_scale=rw_s)
 
+        if hspec["lb"] is not None and not hspec.get("no_bang_mesh", False):
+            lb_x, lb_y, lb_s = hspec["lb"]
+            bx = lb_x + (116.0 + hspec.get("bm_dx", 0.0)) * lb_s
+            by = lb_y + (18.0 + hspec.get("bm_dy", 0.0)) * lb_s
+            apply_bang_mesh_pattern2(img, orig_img, bx, by, lb_s)
+
     return img
 
 
@@ -645,11 +833,13 @@ def ensure_master_head(force=False):
         return Image.open(MASTER_HEAD_PATH).convert("RGBA")
     cb = Image.open(os.path.join(ASSETS_DIR, "chibi_base.jpg")).convert("RGBA")
     head = cb.crop((0, 0, 350, 450))
+    shift_hair_to_orig_blue(head, eye_boxes=[(105, 260, 265, 325)])
     orig_head = head.copy()
     skin_mask = is_warm_skin_mask(orig_head)
     apply_moon_in_front(head, orig_head, 230, 150, 1.0)
     apply_left_osage(head, orig_head, 40, 164, 1.0, (255, 255, 255, 255), skin_mask)
     apply_right_osage_frontal(head, orig_head, 286, 164, 1.0, (255, 255, 255, 255), skin_mask)
+    apply_bang_mesh_pattern2(head, orig_head, 156, 182, 1.0)
     head.save(MASTER_HEAD_PATH)
     print(f"Saved canonical master head to {MASTER_HEAD_PATH}")
     return head
