@@ -246,8 +246,8 @@ def apply_left_osage(img, orig_img, lb_x, lb_y, scale, bg_color, skin_mask, clea
                 if is_ribbon:
                     continue
                 # White/grey pearl pixel or dark pearl outline surrounded by hair on the left bob
-                is_pearl_white = (r > 155 and g > 165 and b > 195 and (b - r) < 42)
-                is_pearl_outline = (y_orig >= 225 and (r < 95 or (b - r < 55 and b < 195)))
+                is_pearl_white = (r > 135 and g > 150 and b > 195 and (b - r) < 75)
+                is_pearl_outline = (y_orig >= 225 and (r < 95 or (b - r < 72 and b < 220)))
                 if is_pearl_white or is_pearl_outline:
                     pix[px, py] = H_BASE
 
@@ -321,8 +321,8 @@ def apply_right_osage_frontal(img, orig_img, rb_x, rb_y, scale, bg_color, skin_m
     ox = rb_x - 286.0 * scale
     oy = rb_y - 164.0 * scale
 
-    # 1. Erase old white 4-bead chain on Right
-    py_erase_start = max(0, int(round(oy + 216 * scale)))
+    # 1. Erase old white 4-bead chain on Right (start at 220*scale to never clip cloud outline above)
+    py_erase_start = max(0, int(round(oy + 220 * scale)))
     py_erase_end   = min(h - 1, int(round(oy + 286 * scale)))
     dy_step = max(1, int(round(2 * scale)))
     for py in range(py_erase_start, py_erase_end + 1):
@@ -335,11 +335,20 @@ def apply_right_osage_frontal(img, orig_img, rb_x, rb_y, scale, bg_color, skin_m
                 continue
             x_orig = (px - ox) / scale
             r, g, b, a = opix[px, py]
-            is_ribbon_body = (b - r > 42 and y_orig <= 238 and x_orig <= 341)
+            is_ribbon_body = (r < 90 and b - r > 65 and y_orig <= 238 and x_orig <= 341)
             r_up, g_up, b_up, _ = opix[px, max(0, py - dy_step)]
-            is_ribbon_outline = (y_orig <= 236 and x_orig <= 342 and b > 65 and r < 65 and (b_up - r_up > 38))
+            is_ribbon_outline = (y_orig <= 236 and x_orig <= 342 and b > 65 and r < 65 and (b_up - r_up > 60 and r_up < 90))
             if not (is_ribbon_body or is_ribbon_outline):
                 pix[px, py] = bg_color
+
+        # Clean any inner white pearl pixels between x_orig=304 and main_hair_edge_orig+1
+        px_inner_start = max(0, int(round(ox + 304.0 * scale)))
+        for px in range(px_inner_start, px_start + 1):
+            if skin_mask[px][py]:
+                continue
+            r, g, b, a = opix[px, py]
+            if r > 140 and g > 150 and b > 185 and (b - r) < 65:
+                pix[px, py] = H_BASE
 
     # 2. Draw Right Long Osage (y_orig in 220..316)
     py_draw_start = max(0, int(round(oy + 220 * scale)))
@@ -380,7 +389,10 @@ def apply_right_osage_frontal(img, orig_img, rb_x, rb_y, scale, bg_color, skin_m
             if skin_mask[px][py]:
                 continue
             r_cur, g_cur, b_cur, a_cur = pix[px, py]
-            if a_cur > 128 and (b_cur - r_cur > 42 or (r_cur < 65 and b_cur > 65)) and y_orig <= 236.5:
+            # Preserve black X hairclip on bangs (px < px_seam, y_orig < 262)
+            if px < px_seam and y_orig < 262.0 and r_cur < 55 and g_cur < 55 and b_cur < 75:
+                continue
+            if a_cur > 128 and (r_cur < 90 and b_cur - r_cur > 65 or (r_cur < 65 and b_cur > 95)) and y_orig <= 236.5:
                 continue
 
             if px > px_r - out_w or (y_orig >= 290.0 and px < px_l + out_w):
@@ -549,25 +561,21 @@ ASSET_HEAD_SPECS = {
     "wall_climb_hybrid.jpg": {
         "bg": (255, 255, 255, 255),
         "heads": [
-            {"mc": (241, 128, 0.88),  "lb": (69, 175, 0.90),   "rb": (284, 145, 0.88), "inner_l": True, "rw_scale": 0.58},
-            {"mc": (721, 139, 0.87),  "lb": (540, 172, 0.90),  "rb": (755, 150, 0.88), "inner_l": True, "rw_scale": 0.58},
-            {"mc": (1195, 136, 0.88), "lb": (1019, 178, 0.90), "rb": (1236, 150, 0.88), "inner_l": True, "rw_scale": 0.58},
+            {"mc": (241, 128, 0.88),  "lb": (69, 175, 0.90),   "rb": (286, 146, 0.88), "inner_l": True, "rw_scale": 0.58},
+            {"mc": (721, 139, 0.87),  "lb": (540, 172, 0.90),  "rb": (758, 152, 0.88), "inner_l": True, "rw_scale": 0.58},
+            {"mc": (1195, 136, 0.88), "lb": (1019, 178, 0.90), "rb": (1237, 152, 0.88), "inner_l": True, "rw_scale": 0.58},
         ],
     },
     "ceiling_crawl.jpg": {
         "bg": (255, 255, 255, 255),
-        "heads": [
-            {"mc": (241, 128, 0.88),  "lb": (69, 175, 0.90),   "rb": (284, 145, 0.88), "inner_l": True, "rw_scale": 0.58},
-            {"mc": (722, 138, 0.87),  "lb": (540, 172, 0.90),  "rb": (755, 150, 0.88), "inner_l": True, "rw_scale": 0.58},
-            {"mc": (1195, 136, 0.88), "lb": (1019, 178, 0.90), "rb": (1236, 150, 0.88), "inner_l": True, "rw_scale": 0.58},
-        ],
+        "heads": [],
     },
     "pinched_dragged.jpg": {
         "bg": (255, 255, 255, 255),
         "heads": [
-            {"mc": (241, 128, 0.88),  "lb": (69, 175, 0.90),   "rb": (284, 145, 0.88), "inner_l": True, "rw_scale": 0.58},
-            {"mc": (721, 139, 0.87),  "lb": (540, 172, 0.90),  "rb": (755, 150, 0.88), "inner_l": True, "rw_scale": 0.58},
-            {"mc": (1195, 136, 0.88), "lb": (1019, 178, 0.90), "rb": (1236, 150, 0.88), "inner_l": True, "rw_scale": 0.58},
+            {"mc": (241, 128, 0.88),  "lb": (69, 175, 0.90),   "rb": (286, 146, 0.88), "inner_l": True, "rw_scale": 0.58},
+            {"mc": (721, 139, 0.87),  "lb": (540, 172, 0.90),  "rb": (758, 152, 0.88), "inner_l": True, "rw_scale": 0.58},
+            {"mc": (1195, 136, 0.88), "lb": (1019, 178, 0.90), "rb": (1237, 152, 0.88), "inner_l": True, "rw_scale": 0.58},
         ],
     },
     "fall_and_land.jpg": {

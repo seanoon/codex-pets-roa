@@ -123,7 +123,7 @@ def extract_3_frames_from_sheet(filename, extra_seeds=None):
 
 # Extract the 4 new custom 3-frame sheets
 wall_raw = extract_3_frames_from_sheet("wall_climb_hybrid.jpg")
-ceiling_raw = extract_3_frames_from_sheet("ceiling_crawl.jpg", extra_seeds=[(1193, 593)])
+ceiling_raw = extract_3_frames_from_sheet("ceiling_crawl.jpg")
 pinched_raw = extract_3_frames_from_sheet("pinched_dragged.jpg")
 fall_land_raw = extract_3_frames_from_sheet("fall_and_land.jpg")
 
@@ -148,17 +148,16 @@ for f in wall_raw:
     wall_frames_128.append(canvas)
 
 # 2B. Format Ceiling Crawl frames (shime23, shime24, shime25)
-# Mirror to face/move left by default; align top of gripping hands to Y = 4 (ImageAnchor="64,6")
+# Horizontal cat-style ceiling hang facing left by default; align gripping hands & feet to Y = 2 (ImageAnchor="64,8")
 ceiling_frames_128 = []
 for f in ceiling_raw:
-    f_left = ImageOps.mirror(f)
-    scale = TARGET_CHAR_H / f_left.height
-    sw = int(round(f_left.width * scale))
-    sh = TARGET_CHAR_H
-    s_img = f_left.resize((sw, sh), Image.Resampling.LANCZOS)
+    scale = min(116.0 / f.width, 80.0 / f.height)
+    sw = int(round(f.width * scale))
+    sh = int(round(f.height * scale))
+    s_img = f.resize((sw, sh), Image.Resampling.LANCZOS)
     canvas = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
     px = (128 - sw) // 2
-    py = 2  # hands right at top edge
+    py = 2  # hands and feet right at top ceiling edge
     canvas.paste(s_img, (px, py), s_img)
     ceiling_frames_128.append(canvas)
 
