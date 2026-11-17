@@ -545,16 +545,19 @@ for _y in range(182, 252):
         _PATTERN2_DX_TABLE[_dy] = [(1, _MESH_S), (2, _MESH_M), (3, _MESH_S)]
 
 
-def apply_bang_mesh_pattern2(img, orig_img, bx, by, scale=1.0):
+def apply_bang_mesh_pattern2(img, orig_img, bx, by, scale=1.0, w_scale=1.0):
     """
     Paint the crisp pixel-art Pattern 2 teardrop white mesh on the left side of the front bangs,
-    anchored at top-center (bx, by) with `scale`. Safely skips dark creases and warm skin.
+    anchored at top-center (bx, by) with `scale` and optional horizontal `w_scale` for
+    high-res sheets that get heavily downscaled in spritesheet/Shijima builds.
+    Safely skips dark creases and warm skin.
     """
     pix = img.load()
     opix = orig_img.load()
     w, h = img.size
+    hx_scale = scale * w_scale
 
-    if abs(scale - 1.0) < 0.01:
+    if abs(scale - 1.0) < 0.01 and abs(w_scale - 1.0) < 0.01:
         for dy, items in _PATTERN2_DX_TABLE.items():
             py = int(round(by + dy))
             if not (0 <= py < h):
@@ -569,22 +572,22 @@ def apply_bang_mesh_pattern2(img, orig_img, bx, by, scale=1.0):
                 pix[px, py] = (*col, a)
         return
 
-    # General scaled sampling for sub-1x (e.g. 0.90x, 0.45x) or 2x assets
+    # General scaled sampling for sub-1x or 2x/heavily downscaled assets
     dx_lookup = {}
     for dy, items in _PATTERN2_DX_TABLE.items():
         dx_lookup[dy] = {dx: col for dx, col in items}
 
     py_start = max(0, int(math.floor(by - 1)))
     py_end = min(h - 1, int(math.ceil(by + 70 * scale)))
-    px_start = max(0, int(math.floor(bx - 3 * scale)))
-    px_end = min(w - 1, int(math.ceil(bx + 4 * scale)))
+    px_start = max(0, int(math.floor(bx - 4 * hx_scale)))
+    px_end = min(w - 1, int(math.ceil(bx + 5 * hx_scale)))
     for py in range(py_start, py_end + 1):
         dy = int(round((py - by) / scale))
         row_map = dx_lookup.get(dy)
         if not row_map:
             continue
         for px in range(px_start, px_end + 1):
-            dx = int(round((px - bx) / scale))
+            dx = int(round((px - bx) / hx_scale))
             col = row_map.get(dx)
             if col is None:
                 continue
@@ -596,7 +599,6 @@ def apply_bang_mesh_pattern2(img, orig_img, bx, by, scale=1.0):
 
 def apply_run_strip_bang_mesh(img, orig_img):
     """Add crisp Pattern 2 front-bang left white mesh across all 4 frames of `run_strip.png`."""
-    # Frame-exact (bx, by) centers for scale=0.45 matching the center-left bang lock in each frame
     anchors = [
         (97.0, 58.0),
         (289.0, 58.0),
@@ -610,15 +612,15 @@ def apply_run_strip_bang_mesh(img, orig_img):
             py = int(round(by + step))
             px_c = int(round(bx + (0.0 if step < 8 else (0.5 if step < 13 else 1.0))))
             if step <= 1:
-                cols = [(px_c, _MESH_M)]
-            elif step <= 6:
-                cols = [(px_c, _MESH_W)]
-            elif step <= 12:
+                cols = [(px_c, _MESH_L)]
+            elif step <= 3:
                 cols = [(px_c, _MESH_W), (px_c + 1, _MESH_L)]
-            elif step <= 14:
-                cols = [(px_c, _MESH_L), (px_c + 1, _MESH_M)]
+            elif step <= 11:
+                cols = [(px_c, _MESH_W), (px_c + 1, _MESH_W), (px_c + 2, _MESH_M)]
+            elif step <= 13:
+                cols = [(px_c, _MESH_L), (px_c + 1, _MESH_W), (px_c + 2, _MESH_M)]
             else:
-                cols = [(px_c, _MESH_S)]
+                cols = [(px_c + 1, _MESH_L)]
             for px, col in cols:
                 r, g, b, a = opix[px, py]
                 if a < 128 or (r > 205 and g > 165 and r - b > 15) or (r < 105 and b < 185):
@@ -703,28 +705,28 @@ ASSET_HEAD_SPECS = {
     "waiting_jitome.png": {
         "bg": (0, 0, 0, 0),
         "heads": [
-            {"mc": (429, 191, 2.06), "lb": (25, 244, 2.05), "rb": (543, 222, 2.05), "bm_dx": 2.0},
+            {"mc": (429, 191, 2.06), "lb": (25, 244, 2.05), "rb": (543, 222, 2.05), "bm_dx": 4.5, "bm_w": 1.45},
         ],
     },
     "sleeping_nap.png": {
         "bg": (0, 0, 0, 0),
         "heads": [
-            {"mc": (247, 115, 1.08), "lb": (19, 136, 1.02), "rb": (305, 142, 1.00), "inner_l": True, "rw_scale": 0.72, "bm_dx": 19.0, "bm_dy": 0.0},
+            {"mc": (247, 115, 1.08), "lb": (19, 136, 1.02), "rb": (305, 142, 1.00), "inner_l": True, "rw_scale": 0.72, "bm_dx": 30.0, "bm_dy": -6.0, "bm_w": 1.45},
         ],
     },
     "hacker_typing.png": {
         "bg": (0, 0, 0, 0),
         "protect_boxes": [(175, 415, 398, 560)],
         "heads": [
-            {"mc": (284, 112, 1.05), "lb": (38, 132, 1.02), "rb": (325, 146, 1.00), "inner_l": True, "rw_scale": 0.72, "bm_dx": 20.0, "bm_dy": 2.0},
+            {"mc": (284, 112, 1.05), "lb": (38, 132, 1.02), "rb": (325, 146, 1.00), "inner_l": True, "rw_scale": 0.72, "bm_dx": 50.0, "bm_dy": -4.0, "bm_w": 1.65},
         ],
     },
     "wall_climb_hybrid.jpg": {
         "bg": (255, 255, 255, 255),
         "heads": [
-            {"mc": (241, 128, 0.88),  "lb": (69, 175, 0.90),   "rb": (286, 146, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 9.0},
-            {"mc": (721, 139, 0.87),  "lb": (540, 172, 0.90),  "rb": (758, 152, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 20.0, "bm_dy": 4.0},
-            {"mc": (1195, 136, 0.88), "lb": (1019, 178, 0.90), "rb": (1237, 152, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 16.0, "bm_dy": 4.0},
+            {"mc": (241, 128, 0.88),  "lb": (69, 175, 0.90),   "rb": (286, 146, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 26.0, "bm_dy": 0.0, "bm_w": 1.50},
+            {"mc": (721, 139, 0.87),  "lb": (540, 172, 0.90),  "rb": (758, 152, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 34.0, "bm_dy": 4.0, "bm_w": 1.50},
+            {"mc": (1195, 136, 0.88), "lb": (1019, 178, 0.90), "rb": (1237, 152, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 31.0, "bm_dy": 4.0, "bm_w": 1.50},
         ],
     },
     "ceiling_crawl.jpg": {
@@ -735,17 +737,17 @@ ASSET_HEAD_SPECS = {
     "pinched_dragged.jpg": {
         "bg": (255, 255, 255, 255),
         "heads": [
-            {"mc": (241, 128, 0.88),  "lb": (69, 175, 0.90),   "rb": (286, 146, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 9.0},
-            {"mc": (721, 139, 0.87),  "lb": (540, 172, 0.90),  "rb": (758, 152, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 20.0, "bm_dy": 4.0},
-            {"mc": (1195, 136, 0.88), "lb": (1019, 178, 0.90), "rb": (1237, 152, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 16.0, "bm_dy": 4.0},
+            {"mc": (241, 128, 0.88),  "lb": (69, 175, 0.90),   "rb": (286, 146, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 26.0, "bm_dy": 0.0, "bm_w": 1.50},
+            {"mc": (721, 139, 0.87),  "lb": (540, 172, 0.90),  "rb": (758, 152, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 34.0, "bm_dy": 4.0, "bm_w": 1.50},
+            {"mc": (1195, 136, 0.88), "lb": (1019, 178, 0.90), "rb": (1237, 152, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 31.0, "bm_dy": 4.0, "bm_w": 1.50},
         ],
     },
     "fall_and_land.jpg": {
         "bg": (255, 255, 255, 255),
         "heads": [
-            {"mc": (247, 126, 0.92),  "lb": (69, 185, 0.90),   "rb": (310, 140, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 3.0},
-            {"mc": (753, 204, 0.90),  "lb": (558, 224, 0.90),  "rb": (810, 225, 0.90), "inner_l": True, "rw_scale": 0.72, "bm_dx": 17.0, "bm_dy": 12.0},
-            {"mc": (1224, 165, 0.92), "lb": (1028, 179, 0.90), "rb": (1280, 185, 0.90), "inner_l": True, "rw_scale": 0.72, "bm_dx": 13.0, "bm_dy": 4.0},
+            {"mc": (247, 126, 0.92),  "lb": (69, 185, 0.90),   "rb": (310, 140, 0.88), "inner_l": True, "rw_scale": 0.58, "bm_dx": 3.0, "bm_w": 1.30},
+            {"mc": (753, 204, 0.90),  "lb": (558, 224, 0.90),  "rb": (810, 225, 0.90), "inner_l": True, "rw_scale": 0.72, "bm_dx": 17.0, "bm_dy": 12.0, "bm_w": 1.30},
+            {"mc": (1224, 165, 0.92), "lb": (1028, 179, 0.90), "rb": (1280, 185, 0.90), "inner_l": True, "rw_scale": 0.72, "bm_dx": 13.0, "bm_dy": 4.0, "bm_w": 1.30},
         ],
     },
 }
@@ -818,7 +820,7 @@ def patch_asset_image(filename, img=None):
             lb_x, lb_y, lb_s = hspec["lb"]
             bx = lb_x + (116.0 + hspec.get("bm_dx", 0.0)) * lb_s
             by = lb_y + (18.0 + hspec.get("bm_dy", 0.0)) * lb_s
-            apply_bang_mesh_pattern2(img, orig_img, bx, by, lb_s)
+            apply_bang_mesh_pattern2(img, orig_img, bx, by, lb_s, w_scale=hspec.get("bm_w", 1.0))
 
     return img
 
