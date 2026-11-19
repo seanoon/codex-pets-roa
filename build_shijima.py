@@ -1017,9 +1017,9 @@ actions_xml = f"""<?xml version="1.0" encoding="UTF-8" ?>
 		</Action>
 		<Action Name="PullUpShimeji2" Type="Animate">
 			<Animation>
-				<Pose Image="/shime9.png" ImageAnchor="32,128" Velocity="20,-20" Duration="1" />
-				<Pose Image="/shime9.png" ImageAnchor="32,128" Velocity="20,-10" Duration="1" />
-				<Pose Image="/shime9.png" ImageAnchor="32,128" Velocity="20,-5" Duration="1" />
+				<Pose Image="/shime4.png" ImageAnchor="64,120" Velocity="20,-20" Duration="1" />
+				<Pose Image="/shime4.png" ImageAnchor="64,120" Velocity="20,-10" Duration="1" />
+				<Pose Image="/shime4.png" ImageAnchor="64,120" Velocity="20,-5" Duration="1" />
 			</Animation>
 		</Action>
 		<Action Name="PullUpShimeji" Type="Sequence">
