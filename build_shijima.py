@@ -124,8 +124,14 @@ def extract_3_frames_from_sheet(filename, extra_seeds=None):
 # Extract the 4 new custom 3-frame sheets
 wall_raw = extract_3_frames_from_sheet("wall_climb_hybrid.jpg")
 ceiling_raw = extract_3_frames_from_sheet("ceiling_crawl.jpg")
-pinched_raw = extract_3_frames_from_sheet("pinched_dragged.jpg")
-fall_land_raw = extract_3_frames_from_sheet("fall_and_land.jpg")
+pinched_raw = extract_3_frames_from_sheet(
+    "pinched_dragged.jpg",
+    extra_seeds=[(1064, 510), (1134, 572)],
+)
+fall_land_raw = extract_3_frames_from_sheet(
+    "fall_and_land.jpg",
+    extra_seeds=[(1251, 591)],
+)
 
 TARGET_CHAR_H = 114  # Consistent character height inside 128x128 canvas
 

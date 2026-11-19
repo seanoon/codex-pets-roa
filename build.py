@@ -49,9 +49,12 @@ while q3:
                 visited_bg3[nx][ny] = True
                 q3.append((nx, ny))
 
-# Find specific enclosed arm holes in v3
-# Pose 3 waving arm: X=[1251, 1298], Y=[370, 407]
-# (Note: Pose 2 jump has arms raised high with no enclosed holes; X=[981, 1023] is the white tail tip!)
+# Find specific enclosed holes in v3 (Pose 2 jump & Pose 3 waving arm)
+# - Pose 2 jump tail/body gap: (947, 431)
+# - Pose 2 jump bag ribbon gaps: (802, 560), (803, 540)
+# - Pose 3 waving arm gap: X=[1251, 1298], Y=[370, 407]
+# (Note: X=[981, 1023] in Pose 2 is the white tail tip — preserve it!)
+v3_hole_seeds = {(947, 431), (802, 560), (803, 540), (1277, 386)}
 visited_holes3 = [[False] * h3 for _ in range(w3)]
 holes_to_clear3 = []
 
@@ -61,9 +64,12 @@ for x in range(w3):
             comp = []
             q = deque([(x, y)])
             visited_holes3[x][y] = True
+            has_seed = False
             while q:
                 cx, cy = q.popleft()
                 comp.append((cx, cy))
+                if (cx, cy) in v3_hole_seeds:
+                    has_seed = True
                 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                     nx, ny = cx + dx, cy + dy
                     if 0 <= nx < w3 and 0 <= ny < h3:
@@ -75,8 +81,7 @@ for x in range(w3):
             max_x = max(p[0] for p in comp)
             min_y = min(p[1] for p in comp)
             max_y = max(p[1] for p in comp)
-            # Pose 3 waving arm hole ONLY
-            if (1240 <= min_x and max_x <= 1310 and 360 <= min_y and max_y <= 420):
+            if has_seed or (1240 <= min_x and max_x <= 1310 and 360 <= min_y and max_y <= 420):
                 holes_to_clear3.append(comp)
 
 # Apply transparency ONLY to background and verified arm holes
@@ -309,6 +314,12 @@ cry_sheet = patch_asset_image("crying_sheet.jpg")
 csw, csh = cry_sheet.size
 ccol_w = csw // 4
 
+cry_extra_seeds = [
+    [(98, 582)],
+    [(98, 582)],
+    [(91, 581)],
+    [(81, 581)],
+]
 cry_raw_frames = []
 for col in range(4):
     cell = cry_sheet.crop((col * ccol_w, 0, (col + 1) * ccol_w, csh)).copy()
@@ -326,6 +337,11 @@ for col in range(4):
             if cpix[x, y][0] > 240 and cpix[x, y][1] > 240 and cpix[x, y][2] > 240 and (x, y) not in visited:
                 q.append((x, y))
                 visited.add((x, y))
+    for sx, sy in cry_extra_seeds[col]:
+        if 0 <= sx < cw and 0 <= sy < ch and (sx, sy) not in visited:
+            if cpix[sx, sy][0] > 235 and cpix[sx, sy][1] > 235 and cpix[sx, sy][2] > 235:
+                q.append((sx, sy))
+                visited.add((sx, sy))
     while q:
         cx, cy = q.popleft()
         cpix[cx, cy] = (0, 0, 0, 0)
