@@ -27,6 +27,29 @@ Custom desktop pet & shimeji "Roa" for [Codex Pets](https://github.com/PierroX4/
 | **Pinched / Dragged** | <img src="pinched_cycle.gif" width="120" alt="Pinched / Dragged" /> | Dangling and wiggling when picked up by finger/cursor |
 | **Fall & Land** | <img src="fall_land_cycle.gif" width="120" alt="Fall & Land" /> | Freefall, soft landing plop, and sitting up |
 
+## Profile Avatar (Slack / Discord)
+
+| Default (`#DCF1FC`) | Transparent |
+|:---:|:---:|
+| <img src="roa_avatar.png" width="220" alt="Roa Profile Avatar (Light Blue)" /> | <img src="roa_avatar_transparent.png" width="220" alt="Roa Profile Avatar (Transparent)" /> |
+
+- `roa_avatar.png`: 1024×1024 PNG with Roa's pale light-blue (`#DCF1FC`) background
+- `roa_avatar_transparent.png`: 1024×1024 transparent RGBA PNG for custom backgrounds
+
+Customize the background color, image, or size using `export_avatar.py`:
+
+```bash
+# Default pale light-blue (#DCF1FC) -> roa_avatar.png
+python export_avatar.py
+
+# Transparent PNG -> roa_avatar_transparent.png
+python export_avatar.py --bg transparent
+
+# Custom hex color / size or custom background image
+python export_avatar.py --bg "#FFE0EE" --size 512 -o custom_avatar.png
+python export_avatar.py --bg-image path/to/bg.png -o custom_avatar.png
+```
+
 ## Installation
 
 ### Codex Pets / AgentPet
