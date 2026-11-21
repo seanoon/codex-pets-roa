@@ -1,5 +1,9 @@
 # codex-pets-roa
 
+<p align="center">
+  <img src="social_preview.png" alt="codex-pets-roa banner" width="760" />
+</p>
+
 Custom desktop pet & shimeji "Roa" for [Codex Pets](https://github.com/PierroX4/codex-pets), [AgentPet](https://github.com/ntd4996/agentpet), and [Shijima](https://getshijima.app) (Android / Shimeji-ee).
 
 ## Animations (Spritesheet Rows)
